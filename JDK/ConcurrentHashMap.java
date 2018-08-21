@@ -388,8 +388,17 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * 8:    0.00000006
      * more: less than 1 in ten million
      *
+     *
+     * 每个桶一个锁的不足之处是于：若桶列表中的锁已被获取，则同个桶列表中其他更新操作则会被延迟，譬如调用
+     * equals()或其他耗时映射方法。然而从统计上来说，在随机hash码值的情况下这并不是一个常见的问题。
+     * 理想情形下，在重分配阈值设置为0.75时，桶中的节点频率遵循参数平均为0.5的泊松分布（http://en.wikipedia.org/wiki/Poisson_distribution），
+     * 尽管随着重分配的粒度设置不同会有大的方差。忽略这个方差，桶列表大小为k时的期望出现是（exp（-0.5）* pow（0.5，k）/ factorial（k））。
+     *
+     *
      * Lock contention probability for two threads accessing distinct
      * elements is roughly 1 / (8 * #elements) under random hashes.
+     *
+     * 在随机hash值的情况下，对于两个线程访问到同一个元素的可能竞争概率在1 / (8 * #elements)左右。
      *
      * Actual hash code distributions encountered in practice
      * sometimes deviate significantly from uniform randomness.  This
