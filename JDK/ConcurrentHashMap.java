@@ -270,6 +270,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
 
     /*
      * Overview:
+     * 概述：
      *
      * The primary design goal of this hash table is to maintain
      * concurrent readability (typically method get(), but also
@@ -277,6 +278,10 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * contention. Secondary goals are to keep space consumption about
      * the same or better than java.util.HashMap, and to support high
      * initial insertion rates on an empty table by many threads.
+     *
+     * 设计此种Hash表的最初目的是保持高并发的可读（通常指get()方法，也包含iterators和其他相关方法），
+     * 同时也最小化更新操作的竞争；其二，和java.util.HashMap相比，希望保持相同或者要优于其空间消耗，
+     * 并支持多线程在空表中高初始插入速率。
      *
      * This map usually acts as a binned (bucketed) hash table.  Each
      * key-value mapping is held in a Node.  Most nodes are instances
@@ -294,6 +299,18 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * so the impact of carrying around some unused fields is
      * insignificant.)
      *
+     * 此种Map我们常把它当作箱（桶）式哈希表。每一对key-value的映射都存储在Node中。
+     * 大部分的节点都是包含hash、key、value和next属性的基本Node类实例，然而也有不同的子类存在：
+     * TreeNodes 是平衡树中使用的类型，非列表中；
+     * TreeBins 存储着TreeNodes集合的根节点；
+     * ForwardingNodes 是在表重分配时置于箱（桶）的头节点处；
+     * ReservationNodes 是当computeIfAbsent和相关方法建立值时充当占位符；
+     * 像TreeBin、ForwardingNode和ReservationNode这些类型，不会存储普通用户key、value或者hash值，
+     * 并且由于其hash值为负数，key和value为空的缘故，使得在查找等操作中很容易辨别。
+     *（这些特殊节点要么不常见、要么是transient，所以包含一些其他没使用的属性影响不大。）
+     *
+     * 
+     *
      * The table is lazily initialized to a power-of-two size upon the
      * first insertion.  Each bin in the table normally contains a
      * list of Nodes (most often, the list has only zero or one Node).
@@ -302,10 +319,19 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * adding further indirections, we use intrinsics
      * (sun.misc.Unsafe) operations.
      *
+     * ConcurrentHashMap的表是在第一次插入数据时初始化的，其大小都是2的n次方。
+     * 表中的每个桶通常都包含一个Node组成的列表（大多数情况下，列表没有或者含有一个Node）。
+     * 表的访问需要volatile/原子性的读、写和CAS操作。
+     * 因为在没有进一步增加间接方法的情况下，没有其他方法来安排这些操作，我们便使用（sun.misc.Unsafe）内部操作来完成。
+     * 
+     *
      * We use the top (sign) bit of Node hash fields for control
      * purposes -- it is available anyway because of addressing
      * constraints.  Nodes with negative hash fields are specially
      * handled or ignored in map methods.
+     *
+     * 我们决定将Node类中的hash属性，其高位（符号位）作为控制-由于解决了限制（包含hash值为负数的节点会被特殊处理或者被忽略）这是可行的。
+     *
      *
      * Insertion (via put or its variants) of the first node in an
      * empty bin is performed by just CASing it to the bin.  This is
@@ -317,12 +343,26 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * a lock. Locking support for these locks relies on builtin
      * "synchronized" monitors.
      *
+     *
+     * 在Map表的空桶中，我们采用CAS，通过put方法或者其变种方法插入首个节点。
+     * 到目前为止，这是大部分key/hash分配的情况下，对于put操作来说最常见的情况。
+     * 其他更新操作（insert、delete和replace）都需要锁。
+     * 我们并不想为表中每个桶都关联一个锁，这样会浪费空间。取而代之的是，使用桶中的首节点作为锁。
+     * 这些锁的操作都是基于内置的"synchronized"模拟器来支持的。
+     *
+     *
+     *
      * Using the first node of a list as a lock does not by itself
      * suffice though: When a node is locked, any update must first
      * validate that it is still the first node after locking it, and
      * retry if not. Because new nodes are always appended to lists,
      * once a node is first in a bin, it remains first until deleted
      * or the bin becomes invalidated (upon resizing).
+     *
+     * 使用列表中的首节点作为锁还是不够的。当节点被锁住时，任何更新操作首先都必须要
+     * 验证该节点是否为首节点，如果不是还需要重新获取。这是因为新的节点总是会被加到列表中，
+     * 一旦是作为桶中的首节点被插入，它将会直至到被删除或者桶无效为止（重分配）。
+     *
      *
      * The main disadvantage of per-bin locks is that other update
      * operations on other nodes in a bin list protected by the same
