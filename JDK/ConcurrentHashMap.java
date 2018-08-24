@@ -885,9 +885,10 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     public ConcurrentHashMap(int initialCapacity) {
         if (initialCapacity < 0)
             throw new IllegalArgumentException();
+        //不太明白此处的tableSizeFor参数计算与构造函数ConcurrentHashMap(int initialCapacity,float loadFactor, int concurrencyLevel)不同??
         int cap = ((initialCapacity >= (MAXIMUM_CAPACITY >>> 1)) ?
                    MAXIMUM_CAPACITY :
-                   tableSizeFor(initialCapacity + (initialCapacity >>> 1) + 1));
+                   tableSizeFor(initialCapacity + (initialCapacity >>> 1) + 1));  
         this.sizeCtl = cap;
     }
 
@@ -2272,19 +2273,19 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     private final Node<K,V>[] initTable() {
         Node<K,V>[] tab; int sc;
         while ((tab = table) == null || tab.length == 0) {
-            if ((sc = sizeCtl) < 0)
+            if ((sc = sizeCtl) < 0)  //sizeCtl小于0，表示table正在被初始化（此时sizeCtl=-1）或者重分配
                 Thread.yield(); // lost initialization race; just spin
-            else if (U.compareAndSwapInt(this, SIZECTL, sc, -1)) {
+            else if (U.compareAndSwapInt(this, SIZECTL, sc, -1)) { //CAS替换，此处也可以知道，如果正在初始化的话则置为-1
                 try {
                     if ((tab = table) == null || tab.length == 0) {
                         int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
                         @SuppressWarnings("unchecked")
-                        Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n];
+                        Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n];  //数组
                         table = tab = nt;
                         sc = n - (n >>> 2);
                     }
                 } finally {
-                    sizeCtl = sc;
+                    sizeCtl = sc;  //需要resize时的元素数量
                 }
                 break;
             }
